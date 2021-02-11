@@ -1,6 +1,6 @@
 
 all: main.c beep.o beep_it.o
-	gcc -o main main.c `sdl2-config --cflags --libs` -lm beep.o beep_it.o -lncurses
+	gcc -o main main.c `sdl2-config --cflags --libs` -lm beep.o beep_it.o
 
 queue.o: queue.h queue.c beep.o
 	gcc -c queue.c
@@ -13,3 +13,6 @@ beep.o: beep.h beep.c
 
 minmain: minmain.c
 	gcc -o minmain minmain.c `sdl2-config --cflags --libs` -lm
+
+clean:
+	rm queue.o beep.o beep_it.o

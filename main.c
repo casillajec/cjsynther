@@ -1,7 +1,6 @@
 #include <math.h>
 #include <string.h>
 
-#include <ncurses.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_audio.h>
 
