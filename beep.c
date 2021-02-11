@@ -4,7 +4,6 @@
 
 #include "beep.h"
 
-const double TAU = 2.0f * M_PI;
 
 int beep_total_samples(Beep* beep_ptr, int sample_rate) {
 	return ((float)beep_ptr->duration/1000) * sample_rate; 
@@ -14,7 +13,7 @@ void beep_init(Beep* beep_ptr, float hz, int duration, int sample_rate) {
 	beep_ptr->duration = duration;
 	beep_ptr->hz = hz;
 	beep_ptr->total_samples = beep_total_samples(beep_ptr, sample_rate);
-	beep_ptr->step = (hz * TAU) / sample_rate;
+	beep_ptr->step = (hz * 2.0 * M_PI) / sample_rate;
 	beep_ptr->current_sample = 0;
 }
 

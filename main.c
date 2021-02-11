@@ -7,9 +7,15 @@
 #include "beep.h"
 #include "beep_it.h"
 
+typedef struct {
+	BeepIt* beep_it;
+	int current_samples;
+	float kb_hz;
+} CallbackContainer;
 
 const int AMPLITUDE = 28000;
 const int SAMPLE_RATE = 48000;  // Samples per second
+
 
 float attack_release_factor(int current_sample, int total_samples) {
 	float attack_treshold = total_samples * 0.05;
@@ -27,7 +33,8 @@ float attack_release_factor(int current_sample, int total_samples) {
 
 void audio_callback(void *userdata, Uint8* stream, int bytes) {
 	Sint16* buffer = (Sint16*) stream;
-	BeepIt* beep_it = (BeepIt*) userdata;
+	CallbackContainer* cb_cont = (CallbackContainer*) userdata;
+	BeepIt* beep_it = cb_cont->beep_it;
 	int length = bytes / sizeof(Sint16);  // Specific for AUDIO_SYS16 since buffer is Uint8
 
 	Beep* beep_ptr = beep_it_current_ptr(beep_it);
@@ -36,10 +43,16 @@ void audio_callback(void *userdata, Uint8* stream, int bytes) {
 			beep_ptr = beep_it_advance_ptr(beep_it, 1);
 		}
 		float attack_release = attack_release_factor(beep_ptr->current_sample, beep_ptr->total_samples);
-		float sine = sin(beep_ptr->step * beep_ptr->current_sample);
+		float time = (float)cb_cont->current_samples / SAMPLE_RATE;
+		float melody_osc = sin(beep_ptr->hz * 2.0 * M_PI * time);
+		float kb_osc = sin(cb_cont->kb_hz * 2.0 * M_PI * time);
 		
-		buffer[i] = (Sint16)(AMPLITUDE * sine * attack_release);
+		buffer[i] = (Sint16)(
+			+ (AMPLITUDE*0.5*attack_release) * melody_osc
+			+ (AMPLITUDE*0.5) * kb_osc
+		);
 		beep_ptr->current_sample++;
+		cb_cont->current_samples = (cb_cont->current_samples + 1) % SAMPLE_RATE;
 	}
 }
 
@@ -60,6 +73,55 @@ float get_hz(char note, char mod, int octave) {
 	return 440.0 * hz_diff;
 }
 
+void process_input(char* note, char* mod, int* octave, int* quit_requested) {
+	SDL_Event evt;
+	//if (SDL_HasEvent(SDL_KEYDOWN) == SDL_FALSE) { note = 'S'; mod = ' '; }
+	while (SDL_PollEvent(&evt)) {
+		if 	(evt.type == SDL_QUIT) { *quit_requested = 1; }
+		else if (evt.type == SDL_KEYDOWN) {
+			switch (evt.key.keysym.scancode) {
+				case SDL_SCANCODE_ESCAPE:
+					*quit_requested = 1; break;
+				case SDL_SCANCODE_Z:
+					*note = 'A'; *mod = ' '; break;
+				case SDL_SCANCODE_S:
+					*note = 'A'; *mod = '#'; break;
+				case SDL_SCANCODE_X:
+					*note = 'B'; *mod = ' '; break;
+				case SDL_SCANCODE_C:
+					*note = 'C'; *mod = ' '; break;
+				case SDL_SCANCODE_F:
+					*note = 'C'; *mod = '#'; break;
+				case SDL_SCANCODE_V:
+					*note = 'D'; *mod = ' '; break;
+				case SDL_SCANCODE_G:
+					*note = 'D'; *mod = '#'; break;
+				case SDL_SCANCODE_B:
+					*note = 'E'; *mod = ' '; break;
+				case SDL_SCANCODE_N:
+					*note = 'F'; *mod = ' '; break;
+				case SDL_SCANCODE_J:
+					*note = 'F'; *mod = '#'; break;
+				case SDL_SCANCODE_M:
+					*note = 'G'; *mod = ' '; break;
+				case SDL_SCANCODE_K:
+					*note = 'G'; *mod = '#'; break;
+				case SDL_SCANCODE_2:
+					*octave = 2; break;
+				case SDL_SCANCODE_3:
+					*octave = 3; break;
+				case SDL_SCANCODE_4:
+					*octave = 4; break;
+				case SDL_SCANCODE_5:
+					*octave = 5; break;
+				case SDL_SCANCODE_6:
+					*octave = 6; break;
+
+			}
+		}
+	}
+}
+
 int main(int argc, char* argv[]) {
 	
 	if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) != 0) {
@@ -67,53 +129,49 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	int n_beeps;
-	Beep* beeps;
-	int duration;
-	char note, mod;
-	int octave;
-	float hz;
 	if (argc < 2) {
-		n_beeps = 1;
-		beeps = malloc(sizeof(Beep));
-		note = 'S';
-		mod = ' ';
-		octave = 4;
-		hz = get_hz(note, mod, octave);
-		duration = SAMPLE_RATE / 20;
-
-		beep_init(beeps, hz, duration, SAMPLE_RATE);
-	} else { 
+		printf("You must provide an spec file\n");
+		return 1;
+	}
 	
-		char* spec_file_path = argv[1];
-		FILE* spec_file = fopen(spec_file_path, "r");
-		if (spec_file == NULL) {
-			printf("Could not open spec file %s\n", spec_file_path);
-			return 1;
-		}
+	char* spec_file_path = argv[1];
+	FILE* spec_file = fopen(spec_file_path, "r");
+	if (spec_file == NULL) {
+		printf("Could not open spec file %s\n", spec_file_path);
+		return 1;
+	}
 
-		fscanf(spec_file, "%i\n", &n_beeps);
-		beeps = malloc(sizeof(Beep) * n_beeps);
-		
-		for (int i = 0; i < n_beeps; i++) {
-			fscanf(spec_file, "%c%c%i %i\n", &note, &mod, &octave, &duration);
-			hz = get_hz(note, mod, octave);
-			beep_init(beeps + i, hz, duration, SAMPLE_RATE);
-		}
+	int n_beeps;
+	fscanf(spec_file, "%i\n", &n_beeps);
+	Beep* beeps = malloc(sizeof(Beep) * n_beeps);
+	
+	int duration, octave;
+	char note, mod;
+	float hz;
+	for (int i = 0; i < n_beeps; i++) {
+		fscanf(spec_file, "%c%c%i %i\n", &note, &mod, &octave, &duration);
+		hz = get_hz(note, mod, octave);
+		beep_init(beeps + i, hz, duration, SAMPLE_RATE);
 	}
 	BeepIt* beep_it = beep_it_new(n_beeps, beeps);
 	beep_it_print(beep_it);
 
+
 	int total_beep_it_duration = beep_it_duration(beep_it);
 	printf("total beep_it duration: %i\n", total_beep_it_duration);
+
+	CallbackContainer cb_cont;
+	cb_cont.beep_it = beep_it;
+	cb_cont.current_samples = 0;
+	cb_cont.kb_hz = 0.0;
 
 	SDL_AudioSpec want, have;
 	want.freq = SAMPLE_RATE;
 	want.format = AUDIO_S16SYS;
 	want.channels = 1;
-	want.samples = 4096;
+	want.samples = 1028;
 	want.callback = audio_callback;
-	want.userdata = beep_it;
+	want.userdata = &cb_cont;
 	
 	SDL_AudioDeviceID dev_id = SDL_OpenAudioDevice(NULL, 0, &want, &have, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
 	if (dev_id == 0) {
@@ -135,63 +193,10 @@ int main(int argc, char* argv[]) {
 	
 	SDL_Event evt;	
 	int quit_requested = 0;
-	float prev_hz = -1;
 	SDL_PauseAudioDevice(dev_id, 0);
 	while (!quit_requested) {
-		if (SDL_HasEvent(SDL_KEYDOWN) == SDL_FALSE) { note = 'S'; mod = ' '; }
-		while (SDL_PollEvent(&evt)) {
-			if 	(evt.type == SDL_QUIT) { quit_requested = 1; }
-			else if (evt.type == SDL_KEYDOWN) {
-				switch (evt.key.keysym.scancode) {
-					case SDL_SCANCODE_ESCAPE:
-						quit_requested = 1; break;
-					case SDL_SCANCODE_Z:
-						note = 'A'; mod = ' '; break;
-					case SDL_SCANCODE_S:
-						note = 'A'; mod = '#'; break;
-					case SDL_SCANCODE_X:
-						note = 'B'; mod = ' '; break;
-					case SDL_SCANCODE_C:
-						note = 'C'; mod = ' '; break;
-					case SDL_SCANCODE_F:
-						note = 'C'; mod = '#'; break;
-					case SDL_SCANCODE_V:
-						note = 'D'; mod = ' '; break;
-					case SDL_SCANCODE_G:
-						note = 'D'; mod = '#'; break;
-					case SDL_SCANCODE_B:
-						note = 'E'; mod = ' '; break;
-					case SDL_SCANCODE_N:
-						note = 'F'; mod = ' '; break;
-					case SDL_SCANCODE_J:
-						note = 'F'; mod = '#'; break;
-					case SDL_SCANCODE_M:
-						note = 'G'; mod = ' '; break;
-					case SDL_SCANCODE_K:
-						note = 'G'; mod = '#'; break;
-					case SDL_SCANCODE_2:
-						octave = 2; break;
-					case SDL_SCANCODE_3:
-						octave = 3; break;
-					case SDL_SCANCODE_4:
-						octave = 4; break;
-					case SDL_SCANCODE_5:
-						octave = 5; break;
-					case SDL_SCANCODE_6:
-						octave = 6; break;
-
-				}
-			}
-			hz = get_hz(note, mod, octave);
-			if (hz != prev_hz)
-				beep_init(beeps, hz, duration, SAMPLE_RATE);
-			prev_hz = hz;
-		}
-
-		
-		/*SDL_LockAudioDevice(dev_id);
-		beep_it_reset(beep_it, SAMPLE_RATE);
-		SDL_UnlockAudioDevice(dev_id);*/
+		process_input(&note, &mod, &octave, &quit_requested);
+		cb_cont.kb_hz = get_hz(note, mod, octave);
 	}
 	beep_it_free(beep_it);
 	SDL_CloseAudio();
