@@ -144,10 +144,14 @@ int main(int argc, char* argv[]) {
 	}
 	
 	int quit_requested = 0;
-	SDL_Scancode pressed_key;
 	SDL_PauseAudioDevice(dev_id, 0);
+	InputContainer input_cont;
 	while (!quit_requested) {
-		process_input(&pressed_key, &note, &mod, &octave, &quit_requested);
+		process_input(&input_cont);
+		quit_requested = input_cont.quit_requested;
+		note = input_cont.note;
+		mod = input_cont.mod;
+		octave = input_cont.octave;
 		cb_cont.kb_hz = get_hz(note, mod, octave);
 	}
 	beep_it_free(beep_it);
