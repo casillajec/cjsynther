@@ -78,10 +78,10 @@ void process_input(SDL_Scancode* pressed_key, char* note, char* mod, int* octave
 	while (SDL_PollEvent(&evt)) {
 		if 	(evt.type == SDL_QUIT)
 			*quit_requested = 1;
-		else if (evt.type == SDL_KEYDOWN)
-			*pressed_key = evt.key.keysym.scancode; 
 		else if (evt.type == SDL_KEYUP && evt.key.keysym.scancode == *pressed_key)
 			*pressed_key = -1;
+		else if (evt.type == SDL_KEYDOWN)
+			*pressed_key = evt.key.keysym.scancode; 
 	}
 
 	switch (*pressed_key) {
