@@ -1,7 +1,7 @@
 #include <SDL2/SDL.h>
 
-#ifndef _
-#define _
+#ifndef INPUT_CONTAINER
+#define INPUT_CONTAINER
 typedef struct {
 	SDL_Scancode pressed_key;
 	char note;
