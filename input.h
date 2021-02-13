@@ -18,10 +18,34 @@ void ks_delete(KeyStack* key_stack_ptr, SDL_Scancode key);
 
 SDL_Scancode ks_peek(KeyStack* key_stack_ptr);
 
+#ifndef PITCH_SET
+#define PITCH_SET
+
+#define PS_DEFAULT_MAX_SIZE 10
+typedef struct {
+	int max_size;
+	int size;
+	float pitches[PS_DEFAULT_MAX_SIZE];
+} PitchSet;
+#endif
+
+void ps_init(PitchSet* ps_ptr);
+
+void ps_add(PitchSet* ps_ptr, float pitch);
+
+void ps_remove(PitchSet* ps_ptr, float pitch);
+
+void ps_set_max_size(PitchSet* ps_ptr, int max_size);
+
+void ps_print(PitchSet* ps_ptr);
+
+float ps_last(PitchSet* ps_ptr);
+
 #ifndef INPUT_CONTAINER
 #define INPUT_CONTAINER
 typedef struct {
-	KeyStack* ks_ptr;
+	PitchSet* ps_ptr;
+	//KeyStack* ks_ptr;
 	char note;
 	char mod;
 	int octave;

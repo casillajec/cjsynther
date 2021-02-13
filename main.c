@@ -12,6 +12,7 @@ typedef struct {
 	BeepIt* beep_it;
 	int current_samples;
 	float kb_hz;
+	PitchSet* ps_ptr;
 } CallbackContainer;
 
 const int AMPLITUDE = 28000;
@@ -36,6 +37,7 @@ void audio_callback(void *userdata, Uint8* stream, int bytes) {
 	Sint16* buffer = (Sint16*) stream;
 	CallbackContainer* cb_cont = (CallbackContainer*) userdata;
 	BeepIt* beep_it = cb_cont->beep_it;
+	PitchSet* ps_ptr = cb_cont->ps_ptr;
 	int length = bytes / sizeof(Sint16);  // Specific for AUDIO_SYS16 since buffer is Uint8
 
 	Beep* beep_ptr = beep_it_current_ptr(beep_it);
@@ -46,11 +48,16 @@ void audio_callback(void *userdata, Uint8* stream, int bytes) {
 		float attack_release = attack_release_factor(beep_ptr->current_sample, beep_ptr->total_samples);
 		float time = (float)cb_cont->current_samples / SAMPLE_RATE;
 		float melody_osc = sin(beep_ptr->hz * 2.0 * M_PI * time);
-		float kb_osc = sin(cb_cont->kb_hz * 2.0 * M_PI * time);
-		
+		float kb_osc = 0.0;
+		for (int j = 0; j < ps_ptr->size; j++) {
+			kb_osc += sin(ps_ptr->pitches[j] * 2.0 * M_PI * time);
+		}
+		if (ps_ptr->size != 0)
+			kb_osc = kb_osc / ps_ptr->size;
+
 		buffer[i] = (Sint16)(
 			+ (AMPLITUDE*0.5*attack_release) * melody_osc
-			+ (AMPLITUDE*0.5) * kb_osc
+			+ (AMPLITUDE*0.5)		 * kb_osc
 		);
 		beep_ptr->current_sample++;
 		cb_cont->current_samples = (cb_cont->current_samples + 1) % SAMPLE_RATE;
@@ -145,15 +152,15 @@ int main(int argc, char* argv[]) {
 	int quit_requested = 0;
 	SDL_PauseAudioDevice(dev_id, 0);
 	InputContainer input_cont;
-	input_cont.ks_ptr = ks_new();
+	input_cont.ps_ptr = malloc(sizeof(PitchSet));
+	ps_init(input_cont.ps_ptr);
+	cb_cont.ps_ptr = input_cont.ps_ptr;
 
 	while (!quit_requested) {
 		process_input(&input_cont);
 		quit_requested = input_cont.quit_requested;
-		note = input_cont.note;
-		mod = input_cont.mod;
 		octave = input_cont.octave;
-		cb_cont.kb_hz = get_hz(note, mod, octave);
+		cb_cont.kb_hz = ps_last(input_cont.ps_ptr);
 	}
 	beep_it_free(beep_it);
 	SDL_DestroyWindow(win);

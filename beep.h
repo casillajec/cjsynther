@@ -17,3 +17,5 @@ void beep_reset(Beep* beep_ptr);
 Beep* beep_new(int duration, float hz, int sample_rate);
 
 void beep_print(Beep *beep);
+
+float pitch_from_rdiff(int r_semitone_diff, int octave);
