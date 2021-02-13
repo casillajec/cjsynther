@@ -6,7 +6,6 @@
 
 #include "beep.h"
 #include "beep_it.h"
-
 #include "input.h"
 
 typedef struct {
@@ -146,6 +145,8 @@ int main(int argc, char* argv[]) {
 	int quit_requested = 0;
 	SDL_PauseAudioDevice(dev_id, 0);
 	InputContainer input_cont;
+	input_cont.ks_ptr = ks_new();
+
 	while (!quit_requested) {
 		process_input(&input_cont);
 		quit_requested = input_cont.quit_requested;
@@ -155,8 +156,8 @@ int main(int argc, char* argv[]) {
 		cb_cont.kb_hz = get_hz(note, mod, octave);
 	}
 	beep_it_free(beep_it);
-	SDL_CloseAudio();
 	SDL_DestroyWindow(win);
+	SDL_CloseAudio();
 	SDL_Quit();
 
 	return 0;
