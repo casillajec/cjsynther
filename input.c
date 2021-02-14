@@ -4,6 +4,7 @@
 
 #include "input.h"
 #include "beep.h"
+#include "oscilators.h"
 
 int get_r_semitone_diff(SDL_Scancode key) {
 
@@ -103,7 +104,7 @@ void kps_update(KeyPitchStack* kps_ptr, Uint8 octave) {
 
 void process_input(InputContainer* input_cont) {
 	SDL_Event evt;
-	int quit_requested = 0, octave = input_cont->octave;
+	int quit_requested = 0, octave = input_cont->octave, oscilator = input_cont->oscilator;
 	char note = input_cont->note, mod = input_cont->mod;
 	KeyPitchStack* kps_ptr = input_cont->kps_ptr;
 
@@ -129,6 +130,14 @@ void process_input(InputContainer* input_cont) {
 					octave = 5; break;
 				case SDL_SCANCODE_F6:
 					octave = 6; break;
+				case SDL_SCANCODE_F9:
+					oscilator = OSC_SIN; break;
+				case SDL_SCANCODE_F10:
+					oscilator = OSC_SQUARE; break;
+				case SDL_SCANCODE_F11:
+					oscilator = OSC_TRIANGLE; break;
+				case SDL_SCANCODE_F12:
+					oscilator = OSC_EXP; break;
 			}
 			kps_add(kps_ptr, pressed_key);
 		}
@@ -137,5 +146,6 @@ void process_input(InputContainer* input_cont) {
 	kps_update(kps_ptr, octave);
 	input_cont->quit_requested = quit_requested;
 	input_cont->octave = octave;
+	input_cont->oscilator = oscilator;
 	input_cont->kps_ptr = kps_ptr;
 }

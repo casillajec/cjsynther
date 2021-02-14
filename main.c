@@ -7,10 +7,12 @@
 #include "beep.h"
 #include "beep_it.h"
 #include "input.h"
+#include "oscilators.h"
 
 typedef struct {
 	BeepIt* beep_it;
 	int current_samples;
+	int oscilator;
 	KeyPitchStack* kps_ptr;
 } CallbackContainer;
 
@@ -38,6 +40,7 @@ void audio_callback(void *userdata, Uint8* stream, int bytes) {
 	CallbackContainer* cb_cont = (CallbackContainer*) userdata;
 	BeepIt* beep_it = cb_cont->beep_it;
 	KeyPitchStack* kps_ptr = cb_cont->kps_ptr;
+	int oscilator = cb_cont->oscilator;
 
 	Beep* beep_ptr = beep_it_current_ptr(beep_it);
 	for (int i = 0; i < length; i++) {
@@ -52,7 +55,7 @@ void audio_callback(void *userdata, Uint8* stream, int bytes) {
 
 		float kb_osc = 0.0;
 		for (int j = 0; j < kps_ptr->size; j++) {
-			kb_osc += sin(kps_ptr->pitches[j] * 2.0 * M_PI * time);
+			kb_osc += osc_f(kps_ptr->pitches[j], time, oscilator);
 		}
 		if (kps_ptr->size != 0)
 			kb_osc = kb_osc / kps_ptr->size;
@@ -86,12 +89,18 @@ float get_hz(char note, char mod, int octave) {
 
 BeepIt* parse_spec_file(FILE* spec_file) {
 
-	int n_beeps;
-	fscanf(spec_file, "%i\n", &n_beeps);
+	int n_beeps = 0;
+	char ch;
+	while (!feof(spec_file)) {
+		ch = fgetc(spec_file);
+		n_beeps += (ch == '\n');
+	}
+	rewind(spec_file);
+	
 	Beep* beeps = malloc(sizeof(Beep) * n_beeps);
 	if (!beeps)
 		return NULL;
-	
+
 	int duration, octave;
 	char note, mod;
 	float hz;
@@ -135,17 +144,19 @@ int main(int argc, char* argv[]) {
 	kps_init(input_cont.kps_ptr);
 	input_cont.octave = 3;
 	input_cont.quit_requested = 0;
+	input_cont.oscilator = OSC_SIN;
 
 	CallbackContainer cb_cont;
 	cb_cont.beep_it = beep_it;
 	cb_cont.current_samples = 0;
+	cb_cont.oscilator = input_cont.oscilator;
 	cb_cont.kps_ptr = input_cont.kps_ptr;
 
 	SDL_AudioSpec want, have;
 	want.freq = SAMPLE_RATE;
 	want.format = AUDIO_S16SYS;
 	want.channels = 1;
-	want.samples = 1028;
+	want.samples = 512;
 	want.callback = audio_callback;
 	want.userdata = &cb_cont;
 	
@@ -169,6 +180,7 @@ int main(int argc, char* argv[]) {
 	SDL_PauseAudioDevice(dev_id, 0);
 	while (!input_cont.quit_requested) {
 		process_input(&input_cont);
+		cb_cont.oscilator = input_cont.oscilator;
 	}
 	SDL_PauseAudioDevice(dev_id, 1);
 

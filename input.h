@@ -29,7 +29,8 @@ typedef struct {
 	char note;
 	char mod;
 	int octave;
-	int quit_requested;	
+	int quit_requested;
+	int oscilator;
 } InputContainer;
 #endif
 
