@@ -119,23 +119,30 @@ int main(int argc, char* argv[]) {
 		SDL_Log("Failed to load SDL Audio module: %s", SDL_GetError());
 		return 1;
 	}
+	
+	BeepIt* beep_it;	
+	if (argc < 2) {  // No spec file
+		Beep* beeps = malloc(sizeof(Beep));
+		if (!beeps) {
+			printf("Could not allocate beeps\n");
+			return 1;
+		}
+		beep_init(beeps, 0.0, 1000, SAMPLE_RATE);
+		beep_it = beep_it_new(1, beeps);
+	
+	} else {
+		char* spec_file_path = argv[1];
+		FILE* spec_file = fopen(spec_file_path, "r");
+		if (spec_file == NULL) {
+			printf("Could not open spec file %s\n", spec_file_path);
+			return 1;
+		}
 
-	if (argc < 2) {
-		printf("You must provide an spec file\n");
-		return 1;
-	}
-
-	char* spec_file_path = argv[1];
-	FILE* spec_file = fopen(spec_file_path, "r");
-	if (spec_file == NULL) {
-		printf("Could not open spec file %s\n", spec_file_path);
-		return 1;
-	}
-
-	BeepIt* beep_it = parse_spec_file(spec_file);
-	if (!beep_it) {
-		printf("Could not allocate beep_it\n");
-		return 1;
+		beep_it = parse_spec_file(spec_file);
+		if (!beep_it) {
+			printf("Could not allocate beep_it\n");
+			return 1;
+		}
 	}
 	beep_it_print(beep_it);
 
@@ -170,7 +177,7 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	SDL_Window* win = SDL_CreateWindow("CJSynther", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, 0);
+	SDL_Window* win = SDL_CreateWindow("CJSynther", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 120, 0);
 	if (!win) {
 		SDL_Log("Failed to initialize window: %s", SDL_GetError());
 		SDL_Quit();
