@@ -67,5 +67,7 @@ void beep_it_print(BeepIt* beep_it) {
 		printf((i == beep_it->current) ? "+ " : "  ");
 		beep_print(&(beep_it->beeps[i]));
 	}
+	int total_beep_it_duration = beep_it_duration(beep_it);
+	printf("Total beep_it duration: %i\n", total_beep_it_duration);
 }
 
