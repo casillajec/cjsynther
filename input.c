@@ -6,35 +6,43 @@
 #include "beep.h"
 #include "oscilators.h"
 
+const SDL_Scancode semitones[] = {
+	SDL_SCANCODE_Q,
+	SDL_SCANCODE_2,
+	SDL_SCANCODE_W,
+	SDL_SCANCODE_E,
+	SDL_SCANCODE_4,
+	SDL_SCANCODE_R,
+	SDL_SCANCODE_5,
+	SDL_SCANCODE_T,
+	SDL_SCANCODE_Y,
+	SDL_SCANCODE_7,
+	SDL_SCANCODE_U,
+	SDL_SCANCODE_8,
+
+	SDL_SCANCODE_Z,  // A
+	SDL_SCANCODE_S,  // A#
+	SDL_SCANCODE_X,  // B
+	SDL_SCANCODE_C,  // C
+	SDL_SCANCODE_F,  // C#
+	SDL_SCANCODE_V,  // D
+	SDL_SCANCODE_G,  // D#
+	SDL_SCANCODE_B,  // E
+	SDL_SCANCODE_N,  // F
+	SDL_SCANCODE_J,  // F#
+	SDL_SCANCODE_M,  // G
+	SDL_SCANCODE_K   // G#
+};
+
+int is_semitone(SDL_Scancode key) {
+	for (int i = 0; i < 24; i++) {
+		if (key == semitones[i])
+			return 1;
+	}
+	return 0;
+}
+
 int get_r_semitone_diff(SDL_Scancode key) {
-
-	const SDL_Scancode semitones[] = {
-		SDL_SCANCODE_Q,
-		SDL_SCANCODE_2,
-		SDL_SCANCODE_W,
-		SDL_SCANCODE_E,
-		SDL_SCANCODE_4,
-		SDL_SCANCODE_R,
-		SDL_SCANCODE_5,
-		SDL_SCANCODE_T,
-		SDL_SCANCODE_Y,
-		SDL_SCANCODE_7,
-		SDL_SCANCODE_U,
-		SDL_SCANCODE_8,
-
-		SDL_SCANCODE_Z,  // A
-		SDL_SCANCODE_S,  // A#
-		SDL_SCANCODE_X,  // B
-		SDL_SCANCODE_C,  // C
-		SDL_SCANCODE_F,  // C#
-		SDL_SCANCODE_V,  // D
-		SDL_SCANCODE_G,  // D#
-		SDL_SCANCODE_B,  // E
-		SDL_SCANCODE_N,  // F
-		SDL_SCANCODE_J,  // F#
-		SDL_SCANCODE_M,  // G
-		SDL_SCANCODE_K   // G#
-	};
 
 	int r_semitone_diff = 0;
 	while (key != semitones[r_semitone_diff] && r_semitone_diff < 24)
@@ -48,6 +56,9 @@ void kps_init(KeyPitchStack* kps_ptr) {
 }
 
 void kps_add(KeyPitchStack* kps_ptr, SDL_Scancode key) {
+
+	if (!is_semitone(key))
+		return;
 
 	for (int i = 0; i < kps_ptr->size; i++) {
 		if (key == kps_ptr->keys[i]) {
