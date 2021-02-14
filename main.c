@@ -159,7 +159,7 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	SDL_Window* win = SDL_CreateWindow("Synther", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, 0);
+	SDL_Window* win = SDL_CreateWindow("CJSynther", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, 0);
 	if (!win) {
 		SDL_Log("Failed to initialize window: %s", SDL_GetError());
 		SDL_Quit();
