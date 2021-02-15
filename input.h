@@ -31,6 +31,9 @@ typedef struct {
 	int octave;
 	int quit_requested;
 	int oscilator;
+	int pitch_mod;
+	float mod_freq;
+	float mod_amplitude;
 } InputContainer;
 #endif
 

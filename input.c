@@ -115,22 +115,45 @@ void kps_update(KeyPitchStack* kps_ptr, Uint8 octave) {
 
 void process_input(InputContainer* input_cont) {
 	SDL_Event evt;
-	int quit_requested = 0, octave = input_cont->octave, oscilator = input_cont->oscilator;
+	int quit_requested = 0, octave = input_cont->octave, oscilator = input_cont->oscilator, pitch_mod = input_cont->pitch_mod;
 	char note = input_cont->note, mod = input_cont->mod;
+	float mod_freq = input_cont->mod_freq, mod_amplitude = input_cont->mod_amplitude;
 	KeyPitchStack* kps_ptr = input_cont->kps_ptr;
 
-	SDL_Scancode pressed_key;
+	SDL_Scancode key;
 	while (SDL_PollEvent(&evt)) {
 		if 	(evt.type == SDL_QUIT) {
 			quit_requested = 1;
 		} else if (evt.type == SDL_KEYUP) {
-			kps_remove(kps_ptr, evt.key.keysym.scancode);
+			key = evt.key.keysym.scancode;
+			switch (key) {
+				case SDL_SCANCODE_LSHIFT:
+				case SDL_SCANCODE_RSHIFT:
+					pitch_mod = 0; break;
+			}
+			kps_remove(kps_ptr, key);
 
-		} else if (evt.type == SDL_KEYDOWN && evt.key.repeat == 0) {
-			pressed_key = evt.key.keysym.scancode;
-			switch (pressed_key) {
+		} else if (evt.type == SDL_KEYDOWN) {
+		//} else if (evt.type == SDL_KEYDOWN && evt.key.repeat == 0) {
+			key = evt.key.keysym.scancode;
+			switch (key) {
 				case SDL_SCANCODE_ESCAPE:
 					quit_requested = 1; break;
+				case SDL_SCANCODE_LSHIFT:
+				case SDL_SCANCODE_RSHIFT:
+					pitch_mod = 1; break;
+				case SDL_SCANCODE_RIGHT:
+					mod_freq += 0.1f; break;
+				case SDL_SCANCODE_LEFT:
+					mod_freq -= 0.1f;
+					mod_freq = mod_freq < 0 ? 0.0f : mod_freq;
+					break;
+				case SDL_SCANCODE_UP:
+					mod_amplitude += 0.01f; break;
+				case SDL_SCANCODE_DOWN:
+					mod_amplitude -= 0.01f;
+					mod_amplitude = mod_amplitude < 0 ? 0.0f : mod_amplitude;
+					break;
 				case SDL_SCANCODE_F2:
 					octave = 2; break;
 				case SDL_SCANCODE_F3:
@@ -150,7 +173,7 @@ void process_input(InputContainer* input_cont) {
 				case SDL_SCANCODE_F12:
 					oscilator = OSC_EXP; break;
 			}
-			kps_add(kps_ptr, pressed_key);
+			kps_add(kps_ptr, key);
 		}
 	}
 	
@@ -159,4 +182,7 @@ void process_input(InputContainer* input_cont) {
 	input_cont->octave = octave;
 	input_cont->oscilator = oscilator;
 	input_cont->kps_ptr = kps_ptr;
+	input_cont->pitch_mod = pitch_mod;
+	input_cont->mod_freq = mod_freq;
+	input_cont->mod_amplitude = mod_amplitude;
 }

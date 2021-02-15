@@ -8,4 +8,4 @@
 
 #endif
 
-float osc_f(float pitch, float time, int osc);
+float osc_f(float pitch, float time, int osc, int mod_pitch, float mod_freq, float mod_amplitude);
