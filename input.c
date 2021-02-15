@@ -134,7 +134,6 @@ void process_input(InputContainer* input_cont) {
 			kps_remove(kps_ptr, key);
 
 		} else if (evt.type == SDL_KEYDOWN) {
-		//} else if (evt.type == SDL_KEYDOWN && evt.key.repeat == 0) {
 			key = evt.key.keysym.scancode;
 			switch (key) {
 				case SDL_SCANCODE_ESCAPE:
