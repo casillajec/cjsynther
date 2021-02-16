@@ -11,16 +11,6 @@
 #include "state.h"
 #include "oscilators.h"
 
-typedef struct {
-	BeepIt* beep_it;
-	int current_samples;
-	int oscilator;
-	KeyPitchStack* kps_ptr;
-	int pitch_mod;
-	float mod_freq;
-	float mod_amplitude;
-} CallbackContainer;
-
 const int AMPLITUDE = 28000;
 const int SAMPLE_RATE = 48000;  // Samples per second
 
@@ -45,11 +35,13 @@ void audio_callback(void *userdata, Uint8* stream, int bytes) {
 	SynthState* st_ptr = (SynthState*) userdata;
 	BeepIt* beep_it = st_ptr->beep_it;
 	KeyPitchStack* kps_ptr = st_ptr->kps_ptr;
+
 	int oscilator = st_ptr->oscilator;
 	int pitch_mod = st_ptr->pitch_mod;
-	float mod_freq = st_ptr->mod_freq, mod_amplitude = st_ptr->mod_amplitude;
-
+	float mod_freq = st_ptr->mod_freq,
+	      mod_amplitude = st_ptr->mod_amplitude;
 	Beep* beep_ptr = beep_it_current_ptr(beep_it);
+
 	for (int i = 0; i < length; i++) {
 		if (beep_ptr->current_sample > beep_ptr->total_samples) {
 			beep_ptr = beep_it_advance_ptr(beep_it, 1);
@@ -57,20 +49,15 @@ void audio_callback(void *userdata, Uint8* stream, int bytes) {
 
 		float attack_release = attack_release_factor(beep_ptr->current_sample, beep_ptr->total_samples);
 		float time = (float)st_ptr->current_samples / SAMPLE_RATE;
-
-		float melody_osc = sin(beep_ptr->hz * 2.0 * M_PI * time);
-
-		float kb_osc = 0.0;
+		
+		float acc = 0.0f;
 		for (int j = 0; j < kps_ptr->size; j++) {
-			kb_osc += osc_f(kps_ptr->pitches[j], time, oscilator, pitch_mod, mod_freq, mod_amplitude);
+			acc += osc_f(kps_ptr->pitches[j], time, oscilator, pitch_mod, mod_freq, mod_amplitude);
 		}
-		if (kps_ptr->size != 0)
-			kb_osc = kb_osc / kps_ptr->size;
+		acc += attack_release * osc_f(beep_ptr->hz, time, oscilator, pitch_mod, mod_freq, mod_amplitude);
+		acc = acc / (kps_ptr->size + 1);
 
-		buffer[i] = (Sint16)(
-			+ (AMPLITUDE*0.5*attack_release) * melody_osc
-			+ (AMPLITUDE*0.5)		 * kb_osc
-		);
+		buffer[i] = (Sint16)(AMPLITUDE * acc);
 
 		beep_ptr->current_sample++;
 		st_ptr->current_samples = (st_ptr->current_samples + 1) % SAMPLE_RATE;
@@ -121,6 +108,7 @@ BeepIt* parse_spec_file(FILE* spec_file) {
 }
 
 const SDL_Color white = {255, 255, 255};
+
 int update_window(SynthState* st_ptr, SDL_Renderer* renderer_ptr, SDL_Rect* rect_ptr, TTF_Font* font_ptr) {
 
 	char buffer[1024];
