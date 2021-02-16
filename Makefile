@@ -1,6 +1,6 @@
 
 all: main.c beep.o beep_it.o input.o oscilators.o key_pitch_stack.o state.o
-	gcc -o main main.c `sdl2-config --cflags --libs` -lm -lSDL2_ttf beep.o beep_it.o input.o oscilators.o key_pitch_stack.o state.o
+	gcc -o cjsynther main.c `sdl2-config --cflags --libs` -lm -lSDL2_ttf beep.o beep_it.o input.o oscilators.o key_pitch_stack.o state.o
 
 queue.o: queue.h queue.c beep.o
 	gcc -c queue.c
