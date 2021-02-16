@@ -8,6 +8,7 @@
 #include "beep.h"
 #include "beep_it.h"
 #include "input.h"
+#include "state.h"
 #include "oscilators.h"
 
 typedef struct {
@@ -41,12 +42,12 @@ void audio_callback(void *userdata, Uint8* stream, int bytes) {
 	Sint16* buffer = (Sint16*) stream;
 	int length = bytes / sizeof(Sint16);  // Specific for AUDIO_SYS16 since buffer is Uint8
 
-	CallbackContainer* cb_cont = (CallbackContainer*) userdata;
-	BeepIt* beep_it = cb_cont->beep_it;
-	KeyPitchStack* kps_ptr = cb_cont->kps_ptr;
-	int oscilator = cb_cont->oscilator;
-	int pitch_mod = cb_cont->pitch_mod;
-	float mod_freq = cb_cont->mod_freq, mod_amplitude = cb_cont->mod_amplitude;
+	SynthState* st_ptr = (SynthState*) userdata;
+	BeepIt* beep_it = st_ptr->beep_it;
+	KeyPitchStack* kps_ptr = st_ptr->kps_ptr;
+	int oscilator = st_ptr->oscilator;
+	int pitch_mod = st_ptr->pitch_mod;
+	float mod_freq = st_ptr->mod_freq, mod_amplitude = st_ptr->mod_amplitude;
 
 	Beep* beep_ptr = beep_it_current_ptr(beep_it);
 	for (int i = 0; i < length; i++) {
@@ -55,7 +56,7 @@ void audio_callback(void *userdata, Uint8* stream, int bytes) {
 		}
 
 		float attack_release = attack_release_factor(beep_ptr->current_sample, beep_ptr->total_samples);
-		float time = (float)cb_cont->current_samples / SAMPLE_RATE;
+		float time = (float)st_ptr->current_samples / SAMPLE_RATE;
 
 		float melody_osc = sin(beep_ptr->hz * 2.0 * M_PI * time);
 
@@ -72,7 +73,7 @@ void audio_callback(void *userdata, Uint8* stream, int bytes) {
 		);
 
 		beep_ptr->current_sample++;
-		cb_cont->current_samples = (cb_cont->current_samples + 1) % SAMPLE_RATE;
+		st_ptr->current_samples = (st_ptr->current_samples + 1) % SAMPLE_RATE;
 	}
 }
 
@@ -119,6 +120,37 @@ BeepIt* parse_spec_file(FILE* spec_file) {
 	return beep_it_new(n_beeps, beeps);
 }
 
+const SDL_Color white = {255, 255, 255};
+int update_window(SynthState* st_ptr, SDL_Renderer* renderer_ptr, SDL_Rect* rect_ptr, TTF_Font* font_ptr) {
+
+	char buffer[1024];
+
+	sprintf(buffer, "Pitch Mod: %i Mod Freq: %f Mod Amplitude: %f", st_ptr->pitch_mod, st_ptr->mod_freq, st_ptr->mod_amplitude);
+
+	SDL_Surface* surface_ptr = TTF_RenderText_Solid(font_ptr, buffer, white);
+	if (!surface_ptr) {
+		SDL_Log("Failed to create surface: %s", SDL_GetError());
+		SDL_FreeSurface(surface_ptr);
+		return 0;
+	}
+
+	SDL_Texture* texture_ptr = SDL_CreateTextureFromSurface(renderer_ptr, surface_ptr);
+	SDL_FreeSurface(surface_ptr);
+	if (!texture_ptr) {
+		SDL_Log("Failed to create texture: %s", SDL_GetError());
+		SDL_FreeSurface(surface_ptr);
+		SDL_DestroyTexture(texture_ptr);
+		return 0;
+	}
+	SDL_RenderClear(renderer_ptr);
+	SDL_RenderCopy(renderer_ptr, texture_ptr, NULL, rect_ptr);
+	SDL_RenderPresent(renderer_ptr);
+	SDL_DestroyTexture(texture_ptr);
+
+	return 1;
+}
+
+
 int main(int argc, char* argv[]) {
 	
 	if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) != 0) {
@@ -156,24 +188,10 @@ int main(int argc, char* argv[]) {
 	}
 	beep_it_print(beep_it);
 
-	InputContainer input_cont;
-	input_cont.kps_ptr = malloc(sizeof(KeyPitchStack));
-	kps_init(input_cont.kps_ptr);
-	input_cont.octave = 3;
-	input_cont.quit_requested = 0;
-	input_cont.oscilator = OSC_SIN;
-	input_cont.pitch_mod = 0;
-	input_cont.mod_freq = 1.5f;
-	input_cont.mod_amplitude = 0.01f;
-
-	CallbackContainer cb_cont;
-	cb_cont.beep_it = beep_it;
-	cb_cont.current_samples = 0;
-	cb_cont.oscilator = input_cont.oscilator;
-	cb_cont.kps_ptr = input_cont.kps_ptr;
-	cb_cont.pitch_mod = input_cont.pitch_mod;
-	cb_cont.mod_freq = input_cont.mod_freq;
-	cb_cont.mod_amplitude = input_cont.mod_amplitude;
+	KeyPitchStack kps;
+	kps_init(&kps);
+	SynthState st;
+	synth_state_init(&st, beep_it, &kps);
 
 	SDL_AudioSpec want, have;
 	want.freq = SAMPLE_RATE;
@@ -181,7 +199,7 @@ int main(int argc, char* argv[]) {
 	want.channels = 1;
 	want.samples = 512;
 	want.callback = audio_callback;
-	want.userdata = &cb_cont;
+	want.userdata = &st;
 	
 	SDL_AudioDeviceID dev_id = SDL_OpenAudioDevice(NULL, 0, &want, &have, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
 	if (dev_id == 0) {
@@ -193,31 +211,28 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	SDL_Window* win = SDL_CreateWindow("CJSynther", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 120, 0);
-	if (!win) {
+	SDL_Window* win_ptr = SDL_CreateWindow("CJSynther", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 120, 0);
+	if (!win_ptr) {
 		SDL_Log("Failed to initialize window: %s", SDL_GetError());
 		SDL_Quit();
 		return 1;
 	}
 
-	SDL_Renderer* renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
-	if (!renderer) {
+	SDL_Renderer* renderer_ptr = SDL_CreateRenderer(win_ptr, -1, SDL_RENDERER_ACCELERATED);
+	if (!renderer_ptr) {
 		SDL_Log("Failed to initialize renderer: %s", SDL_GetError());
-		SDL_DestroyWindow(win);
+		SDL_DestroyWindow(win_ptr);
 		SDL_Quit();
 		return 1;
 	}
-	TTF_Font* font = TTF_OpenFont("LiberationMono-Regular.ttf", 24);
-	if (!font) {
+	TTF_Font* font_ptr = TTF_OpenFont("LiberationMono-Regular.ttf", 24);
+	if (!font_ptr) {
 		printf("Failed to load font\n");
-		SDL_DestroyRenderer(renderer);
-		SDL_DestroyWindow(win);
+		SDL_DestroyRenderer(renderer_ptr);
+		SDL_DestroyWindow(win_ptr);
 		SDL_Quit();
 		return 1;
 	}
-	SDL_Color white = {255, 255, 255};
-	SDL_Surface* message_surface;
-	SDL_Texture* message_texture;
 
 	SDL_Rect message_rect;
 	message_rect.x = 0;
@@ -225,39 +240,18 @@ int main(int argc, char* argv[]) {
 	message_rect.w = 640;
 	message_rect.h = 60;
 
-	char buffer[300];
-
 	SDL_PauseAudioDevice(dev_id, 0);
-	while (!input_cont.quit_requested) {
-		process_input(&input_cont);
-		cb_cont.oscilator = input_cont.oscilator;
-		cb_cont.pitch_mod = input_cont.pitch_mod;
-		cb_cont.mod_freq = input_cont.mod_freq;
-		cb_cont.mod_amplitude = input_cont.mod_amplitude;
+	while (!st.quit_requested) {
+		process_input(&st);
 
-		sprintf(buffer, "Pitch Mod: %i Mod Freq: %f Mod Amplitude: %f", cb_cont.pitch_mod, cb_cont.mod_freq, cb_cont.mod_amplitude);
-		message_surface = TTF_RenderText_Solid(font, buffer, white);
-		if (!message_surface) {
-			SDL_Log("Failed to create surface: %s", SDL_GetError());
+		if (!update_window(&st, renderer_ptr, &message_rect, font_ptr)) {
 			break;
 		}
-		message_texture = SDL_CreateTextureFromSurface(renderer, message_surface);
-		SDL_FreeSurface(message_surface);
-		if (!message_texture) {
-			SDL_Log("Failed to create texture: %s", SDL_GetError());
-			break;
-		}
-		SDL_RenderClear(renderer);
-		SDL_RenderCopy(renderer, message_texture, NULL, &message_rect);
-		SDL_RenderPresent(renderer);
-		SDL_DestroyTexture(message_texture);
 	}
 	SDL_PauseAudioDevice(dev_id, 1);
 
 	beep_it_free(beep_it);
-	SDL_FreeSurface(message_surface);
-	SDL_DestroyTexture(message_texture);
-	SDL_DestroyWindow(win);  // Sometimes causes segfault for some reason
+	SDL_DestroyWindow(win_ptr);  // Sometimes causes segfault for some reason
 	SDL_CloseAudio();
 	SDL_Quit();
 
