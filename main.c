@@ -59,6 +59,8 @@ void audio_callback(void *userdata, Uint8* stream, int bytes) {
 
 		buffer[i] = (Sint16)(AMPLITUDE * acc);
 
+		update_wave_graph(st_ptr, buffer[i], 60, 10);
+
 		beep_ptr->current_sample++;
 		st_ptr->current_samples = (st_ptr->current_samples + 1) % SAMPLE_RATE;
 	}
@@ -126,12 +128,19 @@ int update_window(SynthState* st_ptr, SDL_Renderer* renderer_ptr, SDL_Rect* rect
 	SDL_FreeSurface(surface_ptr);
 	if (!texture_ptr) {
 		SDL_Log("Failed to create texture: %s", SDL_GetError());
-		SDL_FreeSurface(surface_ptr);
 		SDL_DestroyTexture(texture_ptr);
 		return 0;
 	}
 	SDL_RenderClear(renderer_ptr);
 	SDL_RenderCopy(renderer_ptr, texture_ptr, NULL, rect_ptr);
+	
+	SDL_SetRenderDrawColor(renderer_ptr, 255, 255, 255, 255);
+	if (SDL_RenderDrawPoints(renderer_ptr, st_ptr->wave_graph, WAVE_GRAPH_LENGTH) != 0) {
+		SDL_Log("Failed to draw wave graph: %s", SDL_GetError());
+		SDL_DestroyTexture(texture_ptr);
+	}
+	SDL_SetRenderDrawColor(renderer_ptr, 0, 0, 0, 255);
+
 	SDL_RenderPresent(renderer_ptr);
 	SDL_DestroyTexture(texture_ptr);
 
