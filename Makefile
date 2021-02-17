@@ -27,4 +27,4 @@ minmain: minmain.c
 	gcc -o minmain minmain.c `sdl2-config --cflags --libs` -lm
 
 clean:
-	rm beep.o beep_it.o input.o oscilators.o key_pitch_stack.o
+	rm beep.o beep_it.o input.o oscilators.o key_pitch_stack.o state.o
