@@ -9,7 +9,7 @@
 typedef struct {
 	int quit_requested;
 	BeepIt* beep_it;
-	int current_samples;
+	Uint32 current_samples;
 	int oscilator;
 	int octave;
 	KeyPitchStack* kps_ptr;

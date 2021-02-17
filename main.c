@@ -62,7 +62,7 @@ void audio_callback(void *userdata, Uint8* stream, int bytes) {
 		update_wave_graph(st_ptr, buffer[i], 60, 10);
 
 		beep_ptr->current_sample++;
-		st_ptr->current_samples = (st_ptr->current_samples + 1) % SAMPLE_RATE;
+		st_ptr->current_samples++;
 	}
 }
 
